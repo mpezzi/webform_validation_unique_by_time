@@ -1,0 +1,113 @@
+<?php
+
+/**
+ * Implements hook_webform_validation_validators().
+ */
+function webform_validation_unique_by_time_webform_validation_validators() {
+  return array(
+    'unique_by_time' => array(
+      'name' => 'Unique by Time',
+      'description' => t('Validates that user-entered emails are unique within a certain time period.'),
+      'component_types' => array('textfield', 'textarea', 'email'),
+      'custom_data' => array(
+        'label' => t('Specify Unique Time Period'),
+        'description' => t('Validates that user-entered data is unique within a certain time period (in seconds). Example: 24 hours = 86400, 1 hour = 3600'),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_webform_validation_validate().
+ */
+function webform_validation_unique_by_time_webform_validation_validate($validator_name, $items, $components, $rule) {
+  if ( $items ) {
+    switch ( $validator_name ) {
+      case 'unique_by_time':
+        $data = !empty($rule['data']) ? $rule['data'] : 86400;
+        
+        foreach ( $components as $key => $component ) {
+          if ( array_key_exists($component['cid'], $rule['components']) && !empty($items[$key]) ) {
+            $period = time() - $data;
+            
+            // Look for previous submission between now and defined value.
+            $sql  = "SELECT ws.submitted FROM {webform_submitted_data} as wsd ";
+            $sql .= "INNER JOIN {webform_submissions} as ws ON wsd.sid = ws.sid ";
+            $sql .= "WHERE wsd.nid = %d AND wsd.cid = %d AND wsd.data = '%s' AND ws.submitted > %d ";
+            $sql .= "LIMIT 1";
+            
+            $result = db_result(db_query($sql, $component['nid'], $component['cid'], $items[$key], $period));
+            
+            if ( $result != 0 ) {
+              $place_holders = array(
+                '%item' => $components[$key]['name'],
+                '@period' => webform_validation_unique_by_time_timeleft($result, $period, TRUE),
+              );
+              
+              $errors = t('Please note that contest entries are limited to one per individual per day. You will be able to enter again in @period.', $place_holders);
+            }
+          }
+        }
+        
+        return $errors;
+    }
+  }
+}
+
+/**
+ * Calculate timeleft.
+ */
+function webform_validation_unique_by_time_timeleft($fromTime, $toTime = 0, $showLessThanAMinute = false) {
+  $distanceInSeconds = round(abs($toTime - $fromTime));
+  $distanceInMinutes = round($distanceInSeconds / 60);
+        
+  if ( $distanceInMinutes <= 1 ) {
+    if ( !$showLessThanAMinute ) {
+      return ($distanceInMinutes == 0) ? 'less than a minute' : '1 minute';
+    } else {
+      if ( $distanceInSeconds < 5 ) {
+        return 'less than 5 seconds';
+      }
+      if ( $distanceInSeconds < 10 ) {
+        return 'less than 10 seconds';
+      }
+      if ( $distanceInSeconds < 20 ) {
+        return 'less than 20 seconds';
+      }
+      if ( $distanceInSeconds < 40 ) {
+        return 'about half a minute';
+      }
+      if ( $distanceInSeconds < 60 ) {
+        return 'less than a minute';
+      }
+      
+      return '1 minute';
+    }
+  }
+  if ( $distanceInMinutes < 45 ) {
+    return $distanceInMinutes . ' minutes';
+  }
+  if ( $distanceInMinutes < 90 ) {
+    return 'about 1 hour';
+  }
+  if ( $distanceInMinutes < 1440 ) {
+    return 'about ' . round(floatval($distanceInMinutes) / 60.0) . ' hours';
+  }
+  if ( $distanceInMinutes < 2880 ) {
+    return '1 day';
+  }
+  if ( $distanceInMinutes < 43200 ) {
+    return 'about ' . round(floatval($distanceInMinutes) / 1440) . ' days';
+  }
+  if ( $distanceInMinutes < 86400 ) {
+    return 'about 1 month';
+  }
+  if ( $distanceInMinutes < 525600 ) {
+    return round(floatval($distanceInMinutes) / 43200) . ' months';
+  }
+  if ( $distanceInMinutes < 1051199 ) {
+    return 'about 1 year';
+  }
+  
+  return 'over ' . round(floatval($distanceInMinutes) / 525600) . ' years';
+}
