@@ -1,0 +1,10 @@
+; $Id:
+name        = "Webform Validation Unique by Time"
+description = "Provides a unique by time validation rule to webform components."
+core        = "6.x"
+package     = "Webform"
+
+version     = "6.x-1.0"
+
+dependencies[] = webform
+dependencies[] = webform_validation
