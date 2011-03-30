@@ -39,14 +39,15 @@ function webform_validation_unique_by_time_webform_validation_validate($validato
             $result = db_result(db_query($sql, $component['nid'], $component['cid'], $items[$key], $period));
             
             if ( $result != 0 ) {
-              watchdog('webform', 'Prevented a non-unique submission by time (%value)', array('%value' => $items[$key]), WATCHDOG_INFO, 'node/' . $component['nid']);
-              
               $place_holders = array(
                 '%item' => $components[$key]['name'],
+                '%value' => $items[$key],
                 '@period' => webform_validation_unique_by_time_timeleft($result, $period, TRUE),
               );
               
               $errors = t('Please note that contest entries are limited to one per individual per day. You will be able to enter again in @period.', $place_holders);
+              
+              watchdog('webform', 'Prevented a non-unique submission by time on %item with a value of %value. Submission will be accepted in @period.', $place_holders, WATCHDOG_INFO, l('view', 'node/' . $component['nid']));
             }
           }
         }
